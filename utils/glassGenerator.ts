@@ -1,5 +1,6 @@
 
 export type GlassShapeProfile = 'convex' | 'concave' | 'flat' | 'liquid';
+export type GlassShape = 'rect' | 'squircle';
 
 interface GlassMaps {
   surfaceUrl: string; // Packed: R=NormX, G=NormY, B=Height, A=Mask
@@ -8,17 +9,14 @@ interface GlassMaps {
 /**
  * 5-Stage Hydro-Physical Glass Map Generator
  * ------------------------------------------
- * STAGE 1: Geometry & SDF (Shape Definition)
- * STAGE 2: Turbulence (Liquid Distortion)
- * STAGE 3: Erosion (Surface Tension Smoothing)
- * STAGE 4: Normal & Height Differentiation
- * STAGE 5: Channel Packing (R:Nx, G:Ny, B:H, A:Mask)
+ * Now supports 'rect' (Rounded Box) and 'squircle' (Superellipse).
  */
 export function generateGlassMaps(
   width: number,
   height: number,
   radius: number,
   bezel: number,
+  shape: GlassShape = 'rect',
   profile: GlassShapeProfile = 'convex',
   tension: number = 2.0,
   warp: number = 0.0
@@ -79,21 +77,35 @@ export function generateGlassMaps(
     for (let x = 0; x < width; x++) {
       const idx = y * width + x;
 
-      // Base SDF Coordinates
-      let dx = Math.abs(x - cx) - bx;
-      let dy = Math.abs(y - cy) - by;
+      let dist = 0;
 
       // STAGE 2: Apply Liquid Turbulence
+      let tx = x;
+      let ty = y;
       if (warp > 0 || isLiquid) {
          const n = noise2d(x * warpScale, y * warpScale);
-         dx += n * warpAmp;
-         dy += n * warpAmp;
+         tx += n * warpAmp;
+         ty += n * warpAmp;
       }
 
-      // Rounded Box SDF
-      const dOuter = Math.sqrt(Math.max(dx, 0) ** 2 + Math.max(dy, 0) ** 2);
-      const dInner = Math.min(Math.max(dx, dy), 0);
-      const dist = dOuter + dInner - r; 
+      if (shape === 'squircle') {
+          // Squircle SDF Approximation (Superellipse n=4)
+          // |x/a|^4 + |y/b|^4 = 1
+          const nx = (tx - cx) / (width / 2);
+          const ny = (ty - cy) / (height / 2);
+          const val = Math.pow(Math.abs(nx), 4) + Math.pow(Math.abs(ny), 4);
+          
+          // Approx distance from edge: (v^0.25 - 1) * radius_scale
+          // This gives 0 at edge, positive outside, negative inside.
+          dist = (Math.pow(val, 0.25) - 1.0) * (Math.min(width, height) / 2);
+      } else {
+          // Rounded Box SDF
+          const dx = Math.abs(tx - cx) - bx;
+          const dy = Math.abs(ty - cy) - by;
+          const dOuter = Math.sqrt(Math.max(dx, 0) ** 2 + Math.max(dy, 0) ** 2);
+          const dInner = Math.min(Math.max(dx, dy), 0);
+          dist = dOuter + dInner - r; 
+      }
 
       // Map Distance to Height Profile
       // dist < -bezel : Plateau (1.0)
@@ -178,10 +190,14 @@ export function generateGlassMaps(
       // B: Height (0-255)   -> Specular Lighting Surface
       // A: Mask (255)       -> Opacity
       
+      // MAPPING EXPLANATION:
+      // Normal X ranges from -1 to 1. 
+      // We map -1 to 0, 0 to 128, 1 to 255.
+      // 128 (0x80) represents "No Slope" / "Flat" / "No Displacement".
       data[i] = (nx * 0.5 + 0.5) * 255;     // R
       data[i + 1] = (ny * 0.5 + 0.5) * 255; // G
       data[i + 2] = hVal * 255;             // B
-      data[i + 3] = 255;                    // A
+      data[i + 3] = hVal > 0.01 ? 255 : 0;  // A (Hard Mask based on height)
     }
   }
 

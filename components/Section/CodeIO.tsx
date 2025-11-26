@@ -21,7 +21,7 @@ export const CodeIO: React.FC = () => {
     },
     block: {
       ...Theme.Type.Readable.Code.M,
-      fontSize: '12px',
+      fontSize: '11px',
       background: 'rgba(0,0,0,0.4)',
       padding: Theme.Space.M,
       borderRadius: Theme.Radius.S,
@@ -41,41 +41,45 @@ export const CodeIO: React.FC = () => {
       
       {/* INPUT */}
       <div style={styles.section}>
-        <span style={styles.label}>INPUT (Props)</span>
+        <span style={styles.label}>INPUT (Filter Props)</span>
         <div style={styles.block}>
           {`{
-  "radius": `}<span style={styles.value}>48</span>{`,
-  "bezel": `}<span style={styles.value}>24</span>{`,
-  "intensity": `}<span style={styles.value}>40</span>{`,
-  "backdrop": `}<span style={styles.value}>"DOM Elements"</span>{`
+  "feDisplacementMap": {
+    "in": "SourceGraphic",
+    "in2": "displacementMap",
+    "scale": `}<span style={styles.value}>30</span>{`,
+    "xChannelSelector": "R",
+    "yChannelSelector": "G"
+  }
 }`}
         </div>
       </div>
 
       {/* PROCESS */}
       <div style={styles.section}>
-        <span style={styles.label}>PROCESS (Algorithm)</span>
+        <span style={styles.label}>COLOR MAPPING LOGIC</span>
         <div style={styles.block}>
-          <span style={styles.comment}>// 1. Generate Height Map</span>{'\n'}
-          <span style={styles.keyword}>const</span> map = <span style={styles.prop}>generateDisplacement</span>(w, h, r);{'\n'}
+          <span style={styles.comment}>// How pixels map to displacement:</span>{'\n'}
+          <span style={styles.comment}>// 0   (0x00) -> Negative Shift (-Scale/2)</span>{'\n'}
+          <span style={styles.comment}>// 127 (0x7F) -> Zero Displacement (Neutral)</span>{'\n'}
+          <span style={styles.comment}>// 255 (0xFF) -> Positive Shift (+Scale/2)</span>{'\n'}
           {'\n'}
-          <span style={styles.comment}>// 2. Chromatic Split</span>{'\n'}
-          <span style={styles.keyword}>const</span> red   = <span style={styles.prop}>displacement</span>(map, intensity * 1.0);{'\n'}
-          <span style={styles.keyword}>const</span> green = <span style={styles.prop}>displacement</span>(map, intensity * 0.9);{'\n'}
-          <span style={styles.keyword}>const</span> blue  = <span style={styles.prop}>displacement</span>(map, intensity * 0.8);{'\n'}
-          {'\n'}
-          <span style={styles.comment}>// 3. Recombine</span>{'\n'}
-          <span style={styles.keyword}>return</span> <span style={styles.prop}>screenBlend</span>(red, green, blue);
+          <span style={styles.keyword}>function</span> <span style={styles.prop}>mapColorToOffset</span>(color) {'{'}{'\n'}
+          {'  '}<span style={styles.keyword}>return</span> ((color / 255) - 0.5) * scale;{'\n'}
+          {'}'}
         </div>
       </div>
 
-      {/* OUTPUT */}
+      {/* SURFACE FUNCTION */}
       <div style={styles.section}>
-        <span style={styles.label}>OUTPUT (Render)</span>
+        <span style={styles.label}>SURFACE FUNCTION (Squircle)</span>
         <div style={styles.block}>
-          &lt;<span style={styles.keyword}>div</span> style={`{{`} {'\n'}
-          {'  '}backdropFilter: <span style={styles.value}>"url(#glass) blur(0px)"</span>{'\n'}
-          {`}} /&gt;`}
+          <span style={styles.comment}>// Superellipse SDF approximation</span>{'\n'}
+          <span style={styles.keyword}>const</span> u = (x - cx) / rx;{'\n'}
+          <span style={styles.keyword}>const</span> v = (y - cy) / ry;{'\n'}
+          <span style={styles.comment}>// Implicit Surface Equation (n=4)</span>{'\n'}
+          <span style={styles.keyword}>const</span> val = <span style={styles.prop}>pow</span>(<span style={styles.prop}>abs</span>(u), 4) + <span style={styles.prop}>pow</span>(<span style={styles.prop}>abs</span>(v), 4);{'\n'}
+          <span style={styles.keyword}>const</span> height = val &gt; 1 ? 0 : 1; 
         </div>
       </div>
     </div>

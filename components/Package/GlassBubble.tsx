@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useId, useMemo } from 'react';
-import { generateDisplacementMap } from '../../utils/generateDisplacementMap';
+import { generateGlassMaps, GlassShape } from '../../utils/glassGenerator';
 import { Theme } from '../../utils/theme';
 import { motion } from 'framer-motion';
 
@@ -9,6 +9,7 @@ interface GlassBubbleProps {
   intensity?: number;
   blur?: number;
   debug?: boolean;
+  shape?: GlassShape;
 }
 
 export const GlassBubble: React.FC<GlassBubbleProps> = ({
@@ -17,6 +18,7 @@ export const GlassBubble: React.FC<GlassBubbleProps> = ({
   intensity = 30,
   blur = 2,
   debug = false,
+  shape = 'rect',
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const [mapUrl, setMapUrl] = useState<string>('');
@@ -54,20 +56,23 @@ export const GlassBubble: React.FC<GlassBubbleProps> = ({
   useEffect(() => {
     if (dimensions.width === 0 || dimensions.height === 0) return;
 
-    const url = generateDisplacementMap(
-      dimensions.width,
-      dimensions.height,
-      radius,
-      bezel
-    );
-    setMapUrl(url);
+    const timeout = setTimeout(() => {
+      const { surfaceUrl } = generateGlassMaps(
+        dimensions.width,
+        dimensions.height,
+        radius,
+        bezel,
+        shape as GlassShape,
+        'convex',
+        2.0
+      );
+      setMapUrl(surfaceUrl);
+    }, 50);
 
-  }, [dimensions.width, dimensions.height, radius, bezel]);
+    return () => clearTimeout(timeout);
+  }, [dimensions.width, dimensions.height, radius, bezel, shape]);
 
   // 3. SVG Filter Definition
-  // CRITICAL OPTIMIZATION:
-  // Simplified to a single displacement pass. 
-  // Removed RGB split (chromatic aberration) and internal blurring which caused high GPU load.
   const filterSvg = useMemo(() => {
     if (!dimensions.width || !dimensions.height) return null;
 
@@ -85,7 +90,7 @@ export const GlassBubble: React.FC<GlassBubbleProps> = ({
             width={dimensions.width} 
             height={dimensions.height}
           >
-            {/* Input displacement map (the texture that distorts the backdrop) */}
+            {/* Input displacement map */}
             <feImage 
               href={mapUrl} 
               result="map" 
@@ -95,7 +100,7 @@ export const GlassBubble: React.FC<GlassBubbleProps> = ({
               preserveAspectRatio="none"
             />
 
-            {/* Single Pass Displacement (O(1) cost vs O(3) + Blending) */}
+            {/* Displacement Pass using Red (X) and Green (Y) channels */}
             <feDisplacementMap
               in="SourceGraphic"
               in2="map"
@@ -113,24 +118,30 @@ export const GlassBubble: React.FC<GlassBubbleProps> = ({
   const glassStyle: React.CSSProperties = {
     position: 'absolute',
     inset: 0,
-    borderRadius: `${radius}px`,
+    // If squircle, we remove border radius as the shape is defined by the map mask
+    borderRadius: shape === 'rect' ? `${radius}px` : '0px',
     
     // BACKDROP FILTER STACK
-    // 1. url(#id) -> Applies the Displacement
-    // 2. blur(px) -> Applies the frosted material effect
     backdropFilter: mapUrl ? `url(#${filterId}) blur(${blur}px)` : `blur(${blur}px)`,
     WebkitBackdropFilter: mapUrl ? `url(#${filterId}) blur(${blur}px)` : `blur(${blur}px)`,
     
-    // PERFORMANCE
     willChange: 'backdrop-filter',
     
     // SURFACE
     backgroundColor: debug ? 'rgba(0,0,0,0.1)' : 'rgba(255, 255, 255, 0.02)',
-    boxShadow: `
+    boxShadow: shape === 'rect' ? `
       inset 0 0 0 1px rgba(255, 255, 255, 0.1),
       inset 0 1px 0 0 rgba(255, 255, 255, 0.2),
       0 20px 40px -10px rgba(0, 0, 0, 0.4)
-    `,
+    ` : 'none', // Squircles rely on the map's alpha for shape
+    
+    // For squircle, we need to mask the box to match the generated shape
+    // The generator puts the mask in the Alpha channel of the map image.
+    maskImage: mapUrl ? `url("${mapUrl}")` : 'none',
+    WebkitMaskImage: mapUrl ? `url("${mapUrl}")` : 'none',
+    maskSize: '100% 100%',
+    WebkitMaskSize: '100% 100%',
+
     transition: 'all 0.1s linear', 
     zIndex: 2,
     overflow: 'hidden',
@@ -144,10 +155,8 @@ export const GlassBubble: React.FC<GlassBubbleProps> = ({
       animate={{ opacity: 1, scale: 1 }}
       transition={{ duration: 0.8, ease: "easeOut" }}
     >
-      {/* The Filter Definition */}
       {mapUrl && filterSvg}
 
-      {/* The Glass Element */}
       <div style={glassStyle} />
 
       {/* Content Label */}
@@ -176,7 +185,6 @@ export const GlassBubble: React.FC<GlassBubbleProps> = ({
          </motion.span>
       </div>
 
-      {/* Debug View */}
       {debug && mapUrl && (
         <div style={{
           position: 'absolute',
@@ -185,7 +193,6 @@ export const GlassBubble: React.FC<GlassBubbleProps> = ({
           backgroundImage: `url("${mapUrl}")`,
           backgroundSize: '100% 100%',
           opacity: 0.9,
-          borderRadius: `${radius}px`,
           pointerEvents: 'none',
           border: '2px solid #F59E0B',
         }} />

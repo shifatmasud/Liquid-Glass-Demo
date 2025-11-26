@@ -1,3 +1,4 @@
+
 import React, { useState, useCallback } from 'react';
 import { Theme } from '../../utils/theme';
 import { Background } from '../Section/Background';
@@ -8,6 +9,7 @@ import { Slider, ToggleGroup } from '../Core/Controls';
 import { Console } from '../Section/Console';
 import { CodeIO } from '../Section/CodeIO';
 import { Faders, Code, TerminalWindow } from '@phosphor-icons/react';
+import { GlassShape } from '../../utils/glassGenerator';
 
 // --- Types ---
 interface GlassState {
@@ -16,6 +18,7 @@ interface GlassState {
   blur: number;
   radius: number;
   debug: 'off' | 'on';
+  shape: GlassShape;
 }
 
 interface LogEntry {
@@ -30,9 +33,10 @@ export const MetaGlassApp = () => {
   const [glass, setGlass] = useState<GlassState>({
     bezel: 24,
     intensity: 40,
-    blur: 0, // Zero blur for maximum sharpness in demo
+    blur: 0, 
     radius: 48,
     debug: 'off',
+    shape: 'rect',
   });
 
   // --- State: Window Management (#MP) ---
@@ -56,7 +60,6 @@ export const MetaGlassApp = () => {
 
   const updateGlass = useCallback((key: keyof GlassState, val: any) => {
     setGlass(prev => ({ ...prev, [key]: val }));
-    // Throttled logging for UI noise reduction
     if (Math.random() > 0.95) { 
        addLog(`Property [${key}] updated to ${val}`, 'action');
     }
@@ -82,7 +85,6 @@ export const MetaGlassApp = () => {
   const focusWindow = useCallback((id: string) => {
     setWindows(prev => {
       const target = prev.find(w => w.id === id);
-      // Optimization: prevent re-renders if already focused
       const maxZ = Math.max(...prev.map(w => w.zIndex));
       if (target && target.zIndex === maxZ) return prev;
 
@@ -104,7 +106,6 @@ export const MetaGlassApp = () => {
       background: Theme.Color.Base.Surface[1],
       userSelect: 'none' as const,
     },
-    // Expensive blobs removed for performance optimization
     glassContainer: {
       position: 'absolute' as const,
       top: '50%',
@@ -121,12 +122,8 @@ export const MetaGlassApp = () => {
 
   return (
     <div style={styles.container}>
-      {/* 1. Grid Background (Subtle Texture) */}
       <Background />
       
-      {/* 2. Static Light Sources (Removed for performance) */}
-      
-      {/* 3. Hero Object (Liquid Glass) */}
       <div style={styles.glassContainer}>
          <GlassBubble 
             {...glass} 
@@ -134,7 +131,6 @@ export const MetaGlassApp = () => {
          />
       </div>
 
-      {/* 4. Meta Prototype Interface (Floating Windows) */}
       {windows.map((win) => (
         <DraggableWindow
           key={win.id}
@@ -160,11 +156,27 @@ export const MetaGlassApp = () => {
                     }} 
                   />
                </div>
+               
+               <div style={{ display: 'flex', flexDirection: 'column', gap: Theme.Space.S }}>
+                  <label style={Theme.Type.Readable.Label.S}>Geometry</label>
+                  <ToggleGroup 
+                    options={['rect', 'squircle']} 
+                    value={glass.shape} 
+                    onChange={(v) => {
+                      updateGlass('shape', v);
+                      addLog(`Shape updated to ${v}`, 'action');
+                    }} 
+                  />
+               </div>
+
                <div style={{ height: '1px', background: Theme.Color.Base.Surface[3] }} />
+               
                <Slider label="Refraction Intensity" value={glass.intensity} min={0} max={100} onChange={(v) => updateGlass('intensity', v)} />
                <Slider label="Bezel Width" value={glass.bezel} min={0} max={100} onChange={(v) => updateGlass('bezel', v)} />
                <Slider label="Surface Blur" value={glass.blur} min={0} max={20} onChange={(v) => updateGlass('blur', v)} />
-               <Slider label="Corner Radius" value={glass.radius} min={0} max={250} onChange={(v) => updateGlass('radius', v)} />
+               {glass.shape === 'rect' && (
+                 <Slider label="Corner Radius" value={glass.radius} min={0} max={250} onChange={(v) => updateGlass('radius', v)} />
+               )}
             </div>
           )}
           {win.id === 'code' && <CodeIO />}
@@ -172,7 +184,6 @@ export const MetaGlassApp = () => {
         </DraggableWindow>
       ))}
 
-      {/* 5. Navigation Dock (Draggable) */}
       <Dock items={windows} onToggle={toggleWindow} />
       
     </div>
