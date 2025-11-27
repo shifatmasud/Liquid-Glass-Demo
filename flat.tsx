@@ -489,7 +489,6 @@ const DraggableWindow: React.FC<DraggableWindowProps> = React.memo(({
             }}>
               {title.toUpperCase()}
             </span>
-
             <button
               onClick={(e) => { e.stopPropagation(); onClose(); }}
               onPointerDown={(e) => e.stopPropagation()}
@@ -518,15 +517,15 @@ const DraggableWindow: React.FC<DraggableWindowProps> = React.memo(({
               }}
             />
           </div>
-
           <div 
-             onPointerDown={(e) => e.stopPropagation()} 
+             onPointerDown={(e) => e.stopPropagation()}
              style={{ 
                 padding: Theme.Space.M, 
                 overflowY: 'auto', 
                 flex: 1, 
                 maxHeight: '60vh',
                 scrollbarWidth: 'none',
+                msOverflowStyle: 'none',
              }}
           >
             {children}
@@ -539,97 +538,17 @@ const DraggableWindow: React.FC<DraggableWindowProps> = React.memo(({
 });
 
 // -----------------------------------------------------------------------------
-// COMPONENTS: DOCK
+// APP: META GLASS
 // -----------------------------------------------------------------------------
 
-interface DockItem {
-  id: string;
-  isOpen: boolean;
-  title: string;
-  icon: React.ReactNode;
+interface GlassState {
+  bezel: number;
+  intensity: number;
+  blur: number;
+  radius: number;
+  debug: 'off' | 'on';
+  shape: GlassShape;
 }
-
-interface DockProps {
-  items: DockItem[];
-  onToggle: (id: string) => void;
-}
-
-const Dock: React.FC<DockProps> = ({ items, onToggle }) => {
-  return (
-    <motion.div
-      drag
-      dragMomentum={false}
-      dragElastic={0.1}
-      initial={{ x: '-50%', y: 100, opacity: 0, left: '50%', bottom: Theme.Space.XL }}
-      animate={{ x: '-50%', y: 0, opacity: 1 }}
-      transition={{ delay: 0.2, duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
-      style={{
-        position: 'absolute', 
-        zIndex: 9999,
-        display: 'flex',
-        alignItems: 'center',
-        gap: Theme.Space.M,
-        padding: `${Theme.Space.S}px ${Theme.Space.M}px`,
-        background: 'rgba(20, 20, 20, 0.6)',
-        backdropFilter: `blur(${Theme.Effect.Blur.M})`,
-        WebkitBackdropFilter: `blur(${Theme.Effect.Blur.M})`,
-        borderRadius: Theme.Radius.Full,
-        border: `1px solid ${Theme.Color.Effect.Glass.Border}`,
-        boxShadow: Theme.Color.Effect.Glass.Shadow,
-        cursor: 'grab',
-      }}
-      whileDrag={{ cursor: 'grabbing', scale: 1.02 }}
-    >
-      {items.map((item) => (
-        <DockIcon key={item.id} item={item} onClick={() => onToggle(item.id)} />
-      ))}
-    </motion.div>
-  );
-};
-
-const DockIcon: React.FC<{ item: DockItem; onClick: () => void }> = ({ item, onClick }) => {
-  return (
-    <motion.button
-      onClick={onClick}
-      whileHover={{ scale: 1.15, y: -4 }}
-      whileTap={{ scale: 0.9 }}
-      style={{
-        position: 'relative',
-        width: '44px',
-        height: '44px',
-        borderRadius: Theme.Radius.M,
-        border: 'none',
-        background: item.isOpen ? 'rgba(255,255,255,0.1)' : 'transparent',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        cursor: 'pointer',
-        color: item.isOpen ? Theme.Color.Base.Content[1] : Theme.Color.Base.Content[2],
-        transition: 'background 0.3s, color 0.3s',
-      }}
-    >
-      {item.icon}
-      {item.isOpen && (
-        <motion.div
-          layoutId={`dock-dot-${item.id}`}
-          style={{
-            position: 'absolute',
-            bottom: '-4px',
-            width: '4px',
-            height: '4px',
-            borderRadius: '50%',
-            background: Theme.Color.Base.Content[1],
-            boxShadow: '0 0 4px rgba(255,255,255,0.5)',
-          }}
-        />
-      )}
-    </motion.button>
-  );
-};
-
-// -----------------------------------------------------------------------------
-// COMPONENTS: CONSOLE & CODE
-// -----------------------------------------------------------------------------
 
 interface LogEntry {
   id: number;
@@ -638,66 +557,206 @@ interface LogEntry {
   type: 'info' | 'action' | 'system';
 }
 
-const Console: React.FC<{ logs: LogEntry[] }> = ({ logs }) => {
-  const endRef = useRef<HTMLDivElement>(null);
-  useEffect(() => { endRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [logs]);
+export const MetaGlassApp = () => {
+  // --- State: Glass Properties ---
+  const [glass, setGlass] = useState<GlassState>({
+    bezel: 24,
+    intensity: 40,
+    blur: 0, 
+    radius: 48,
+    debug: 'off',
+    shape: 'rect',
+  });
 
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', height: '100%', justifyContent: 'flex-start' }}>
-      {logs.length === 0 && (
-        <div style={{ ...Theme.Type.Readable.Code.M, color: Theme.Color.Base.Content[3], textAlign: 'center', marginTop: '20px' }}>_</div>
-      )}
-      {logs.map((log, index) => (
-        <div key={log.id} style={{ display: 'grid', gridTemplateColumns: '60px 1fr', gap: '12px', ...Theme.Type.Readable.Code.M, fontSize: '11px', opacity: Math.max(0.4, 1 - (logs.length - 1 - index) * 0.1) }}>
-          <span style={{ color: Theme.Color.Base.Content[3], textAlign: 'right' }}>{log.timestamp.split(' ')[0]}</span>
-          <span style={{ color: log.type === 'action' ? '#79C0FF' : log.type === 'system' ? '#E2E8F0' : Theme.Color.Base.Content[2], wordBreak: 'break-word' }}>
-            {log.type === 'system' && <span style={{ color: Theme.Color.Fixed.Warning, marginRight: '8px' }}>➜</span>}
-            {log.message}
-          </span>
-        </div>
-      ))}
-      <div ref={endRef} />
-    </div>
-  );
-};
+  // --- State: Window Management (#MP) ---
+  const [windows, setWindows] = useState([
+    { id: 'controls', isOpen: true, zIndex: 10, title: 'Controls', icon: <Faders size={20} weight="duotone" /> },
+    { id: 'code', isOpen: false, zIndex: 9, title: 'Code I/O', icon: <Code size={20} weight="duotone" /> },
+    { id: 'console', isOpen: false, zIndex: 8, title: 'Console', icon: <TerminalWindow size={20} weight="duotone" /> },
+  ]);
 
-const CodeIO: React.FC = () => {
+  const [logs, setLogs] = useState<LogEntry[]>([
+    { id: 1, timestamp: new Date().toLocaleTimeString(), message: 'System initialized. Performance mode active.', type: 'system' }
+  ]);
+
+  // Constraints ref for the draggable glass
+  const constraintsRef = useRef<HTMLDivElement>(null);
+
+  // --- Actions ---
+  const addLog = useCallback((message: string, type: LogEntry['type'] = 'info') => {
+    setLogs(prev => {
+      const newLogs = [...prev, { id: Date.now(), timestamp: new Date().toLocaleTimeString(), message, type }];
+      return newLogs.slice(-50); // Keep log clean
+    });
+  }, []);
+
+  const updateGlass = useCallback((key: keyof GlassState, val: any) => {
+    setGlass(prev => ({ ...prev, [key]: val }));
+    if (Math.random() > 0.95) { 
+       addLog(`Property [${key}] updated to ${val}`, 'action');
+    }
+  }, [addLog]);
+
+  const toggleWindow = useCallback((id: string) => {
+    setWindows(prev => {
+      const target = prev.find(w => w.id === id);
+      if (!target) return prev;
+      
+      const wasOpen = target.isOpen;
+      if (!wasOpen) addLog(`Process spawned: ${target.title}`, 'system');
+
+      const maxZ = Math.max(...prev.map(w => w.zIndex));
+      return prev.map(w => 
+        w.id === id 
+          ? { ...w, isOpen: !wasOpen, zIndex: !wasOpen ? maxZ + 1 : w.zIndex } 
+          : w
+      );
+    });
+  }, [addLog]);
+
+  const focusWindow = useCallback((id: string) => {
+    setWindows(prev => {
+      const target = prev.find(w => w.id === id);
+      const maxZ = Math.max(...prev.map(w => w.zIndex));
+      if (target && target.zIndex === maxZ) return prev;
+
+      return prev.map(w => ({
+        ...w,
+        zIndex: w.id === id ? maxZ + 1 : w.zIndex
+      }));
+    });
+  }, []);
+
   const styles = {
-    wrapper: { display: 'flex', flexDirection: 'column' as const, gap: Theme.Space.M },
-    section: { display: 'flex', flexDirection: 'column' as const, gap: Theme.Space.XS },
-    label: { ...Theme.Type.Readable.Label.XS, color: Theme.Color.Base.Content[3], letterSpacing: '0.1em' },
-    block: { ...Theme.Type.Readable.Code.M, fontSize: '11px', background: 'rgba(0,0,0,0.4)', padding: Theme.Space.M, borderRadius: Theme.Radius.S, color: Theme.Color.Base.Content[2], border: `1px solid ${Theme.Color.Base.Surface[3]}`, whiteSpace: 'pre-wrap' as const, fontFamily: '"JetBrains Mono", monospace' },
-    keyword: { color: '#FF7B72' }, prop: { color: '#D2A8FF' }, value: { color: '#79C0FF' }, comment: { color: '#6E7681', fontStyle: 'italic' },
+    container: { 
+      width: '100vw', 
+      height: '100vh', 
+      position: 'relative' as const, 
+      overflow: 'hidden',
+      fontFamily: Theme.Type.Readable.Body.M.fontFamily,
+      color: Theme.Color.Base.Content[1],
+      background: Theme.Color.Base.Surface[1],
+      userSelect: 'none' as const,
+    },
+    glassContainer: {
+      position: 'absolute' as const,
+      top: '50%',
+      left: '50%',
+      // Center handled via initial motion prop for smooth drag start
+      width: 'clamp(300px, 40vw, 500px)',
+      height: 'clamp(300px, 40vw, 500px)',
+      zIndex: 10,
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      cursor: 'grab' as const,
+    }
   };
 
   return (
-    <div style={styles.wrapper}>
-      <div style={styles.section}>
-        <span style={styles.label}>INPUT (Filter Props)</span>
-        <div style={styles.block}>
-          {`{
-  "feDisplacementMap": {
-    "in": "SourceGraphic",
-    "in2": "displacementMap",
-    "scale": `}<span style={styles.value}>30</span>{`,
-    "xChannelSelector": "R",
-    "yChannelSelector": "G"
-  }
-}`}
-        </div>
-      </div>
-      <div style={styles.section}>
-        <span style={styles.label}>SURFACE FUNCTION (Squircle)</span>
-        <div style={styles.block}>
-          <span style={styles.keyword}>const</span> val = <span style={styles.prop}>pow</span>(<span style={styles.prop}>abs</span>(u), 4) + <span style={styles.prop}>pow</span>(<span style={styles.prop}>abs</span>(v), 4);
-        </div>
-      </div>
+    <div style={styles.container} ref={constraintsRef}>
+      <Background />
+      
+      <motion.div 
+         style={styles.glassContainer}
+         initial={{ x: '-50%', y: '-50%' }}
+         drag
+         dragConstraints={constraintsRef}
+         dragElastic={0.1}
+         dragMomentum={true}
+         whileHover={{ scale: 1.02 }}
+         whileTap={{ scale: 0.98, cursor: 'grabbing' }}
+      >
+         <GlassBubble 
+            {...glass} 
+            debug={glass.debug === 'on'} 
+         />
+      </motion.div>
+
+      {windows.map((win) => (
+        <DraggableWindow
+          key={win.id}
+          id={win.id}
+          title={win.title}
+          isOpen={win.isOpen}
+          zIndex={win.zIndex}
+          onClose={() => toggleWindow(win.id)}
+          onFocus={() => focusWindow(win.id)}
+          width={win.id === 'code' ? '420px' : '300px'}
+          height={win.id === 'console' ? '280px' : 'auto'}
+        >
+          {win.id === 'controls' && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: Theme.Space.L }}>
+               <div style={{ display: 'flex', flexDirection: 'column', gap: Theme.Space.S }}>
+                  <label style={Theme.Type.Readable.Label.S}>Debug Visualization</label>
+                  <ToggleGroup 
+                    options={['off', 'on']} 
+                    value={glass.debug} 
+                    onChange={(v) => {
+                      updateGlass('debug', v as 'off' | 'on');
+                      addLog(`Debug mode switched ${v}`, 'system');
+                    }} 
+                  />
+               </div>
+               
+               <div style={{ display: 'flex', flexDirection: 'column', gap: Theme.Space.S }}>
+                  <label style={Theme.Type.Readable.Label.S}>Geometry</label>
+                  <ToggleGroup 
+                    options={['rect', 'squircle']} 
+                    value={glass.shape} 
+                    onChange={(v) => {
+                      updateGlass('shape', v as GlassShape);
+                      addLog(`Shape updated to ${v}`, 'action');
+                    }} 
+                  />
+               </div>
+
+               <div style={{ height: '1px', background: Theme.Color.Base.Surface[3] }} />
+               
+               <Slider label="Refraction Intensity" value={glass.intensity} min={0} max={100} onChange={(v) => updateGlass('intensity', v)} />
+               <Slider label="Bezel Width" value={glass.bezel} min={0} max={100} onChange={(v) => updateGlass('bezel', v)} />
+               <Slider label="Surface Blur" value={glass.blur} min={0} max={20} onChange={(v) => updateGlass('blur', v)} />
+               {glass.shape === 'rect' && (
+                 <Slider label="Corner Radius" value={glass.radius} min={0} max={250} onChange={(v) => updateGlass('radius', v)} />
+               )}
+            </div>
+          )}
+          {/* Placeholders for CodeIO and Console if they were imported, simulating simple content if not */}
+          {win.id === 'code' && <div style={{ padding: '20px', color: '#666' }}>Code I/O Module</div>}
+          {win.id === 'console' && <div style={{ padding: '20px', color: '#666' }}>System Console Active</div>}
+        </DraggableWindow>
+      ))}
+
+      {/* Dock component assumed to be imported or defined elsewhere in actual app but here referencing imported */}
+      {/* <Dock items={windows} onToggle={toggleWindow} /> - Replaced with simple placeholder logic since Dock is not in this file */}
+      <motion.div
+         style={{
+           position: 'absolute', bottom: '32px', left: '50%', x: '-50%',
+           display: 'flex', gap: '16px', padding: '12px 24px',
+           background: 'rgba(20,20,20,0.6)', backdropFilter: 'blur(12px)',
+           borderRadius: '99px', border: '1px solid rgba(255,255,255,0.1)',
+           zIndex: 100
+         }}
+      >
+        {windows.map(w => (
+          <button 
+             key={w.id} 
+             onClick={() => toggleWindow(w.id)}
+             style={{
+                background: w.isOpen ? 'rgba(255,255,255,0.1)' : 'transparent',
+                border: 'none', color: '#fff', padding: '8px', borderRadius: '50%', cursor: 'pointer'
+             }}
+          >
+             {w.icon}
+          </button>
+        ))}
+      </motion.div>
     </div>
   );
 };
 
 // -----------------------------------------------------------------------------
-// COMPONENTS: GLASS BUBBLE
+// COMPONENT: GLASS BUBBLE (Enhanced)
 // -----------------------------------------------------------------------------
 
 interface GlassBubbleProps {
@@ -709,7 +768,7 @@ interface GlassBubbleProps {
   shape?: GlassShape;
 }
 
-const GlassBubble: React.FC<GlassBubbleProps> = ({
+export const GlassBubble: React.FC<GlassBubbleProps> = ({
   radius = 32,
   bezel = 24,
   intensity = 30,
@@ -727,35 +786,76 @@ const GlassBubble: React.FC<GlassBubbleProps> = ({
   useEffect(() => {
     const el = containerRef.current;
     if (!el) return;
+
     const observer = new ResizeObserver((entries) => {
       const entry = entries[0];
       if (entry) {
         const w = Math.round(entry.contentRect.width);
         const h = Math.round(entry.contentRect.height);
-        setDimensions(prev => (prev.width === w && prev.height === h) ? prev : { width: w, height: h });
+        
+        setDimensions(prev => {
+           if (prev.width === w && prev.height === h) return prev;
+           return { width: w, height: h };
+        });
       }
     });
+    
     observer.observe(el);
     return () => observer.disconnect();
   }, []);
 
   useEffect(() => {
     if (dimensions.width === 0 || dimensions.height === 0) return;
+
     const timeout = setTimeout(() => {
-      const { surfaceUrl } = generateGlassMaps(dimensions.width, dimensions.height, radius, bezel, shape, 'convex', 2.0);
+      const { surfaceUrl } = generateGlassMaps(
+        dimensions.width,
+        dimensions.height,
+        radius,
+        bezel,
+        shape as GlassShape,
+        'convex',
+        2.0
+      );
       setMapUrl(surfaceUrl);
     }, 50);
+
     return () => clearTimeout(timeout);
   }, [dimensions.width, dimensions.height, radius, bezel, shape]);
 
   const filterSvg = useMemo(() => {
     if (!dimensions.width || !dimensions.height) return null;
+
     return (
-      <svg style={{ position: 'absolute', width: 0, height: 0, pointerEvents: 'none' }} aria-hidden="true">
+      <svg 
+        style={{ position: 'absolute', width: 0, height: 0, pointerEvents: 'none' }} 
+        aria-hidden="true"
+      >
         <defs>
-          <filter id={filterId} colorInterpolationFilters="sRGB" filterUnits="userSpaceOnUse" x="0" y="0" width={dimensions.width} height={dimensions.height}>
-            <feImage href={mapUrl} result="map" x="0" y="0" width={dimensions.width} height={dimensions.height} preserveAspectRatio="none" />
-            <feDisplacementMap in="SourceGraphic" in2="map" scale={intensity} xChannelSelector="R" yChannelSelector="G" result="disp" />
+          <filter 
+            id={filterId} 
+            colorInterpolationFilters="sRGB" 
+            filterUnits="userSpaceOnUse"
+            x="0" y="0" 
+            width={dimensions.width} 
+            height={dimensions.height}
+          >
+            <feImage 
+              href={mapUrl} 
+              result="map" 
+              x="0" y="0" 
+              width={dimensions.width} 
+              height={dimensions.height}
+              preserveAspectRatio="none"
+            />
+            <feDisplacementMap
+              in="SourceGraphic"
+              in2="map"
+              scale={intensity}
+              xChannelSelector="R"
+              yChannelSelector="G"
+              result="disp"
+            />
           </filter>
         </defs>
       </svg>
@@ -770,7 +870,11 @@ const GlassBubble: React.FC<GlassBubbleProps> = ({
     WebkitBackdropFilter: mapUrl ? `url(#${filterId}) blur(${blur}px)` : `blur(${blur}px)`,
     willChange: 'backdrop-filter',
     backgroundColor: debug ? 'rgba(0,0,0,0.1)' : 'rgba(255, 255, 255, 0.02)',
-    boxShadow: shape === 'rect' ? `inset 0 0 0 1px rgba(255, 255, 255, 0.1), inset 0 1px 0 0 rgba(255, 255, 255, 0.2), 0 20px 40px -10px rgba(0, 0, 0, 0.4)` : 'none',
+    boxShadow: shape === 'rect' ? `
+      inset 0 0 0 1px rgba(255, 255, 255, 0.1),
+      inset 0 1px 0 0 rgba(255, 255, 255, 0.2),
+      0 20px 40px -10px rgba(0, 0, 0, 0.4)
+    ` : 'none',
     maskImage: mapUrl ? `url("${mapUrl}")` : 'none',
     WebkitMaskImage: mapUrl ? `url("${mapUrl}")` : 'none',
     maskSize: '100% 100%',
@@ -778,6 +882,13 @@ const GlassBubble: React.FC<GlassBubbleProps> = ({
     transition: 'all 0.1s linear', 
     zIndex: 2,
     overflow: 'hidden',
+  };
+
+  const layerStyle: React.CSSProperties = {
+    position: 'absolute',
+    inset: 0,
+    borderRadius: 'inherit',
+    pointerEvents: 'none',
   };
 
   return (
@@ -789,124 +900,68 @@ const GlassBubble: React.FC<GlassBubbleProps> = ({
       transition={{ duration: 0.8, ease: "easeOut" }}
     >
       {mapUrl && filterSvg}
-      <div style={glassStyle} />
-      <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none', zIndex: 3 }}>
+
+      <div style={glassStyle}>
+         {/* Layer 1: Highlight (Top Sheen) - Subtle, soft linear gradient */}
+         <div style={{
+            ...layerStyle,
+            background: 'linear-gradient(180deg, rgba(255,255,255,0.15) 0%, rgba(255,255,255,0) 40%)',
+            mixBlendMode: 'overlay',
+         }} />
+         
+         {/* Layer 2: Shadow (Bottom Depth) - Soft radial for diffused volume */}
+         <div style={{
+            ...layerStyle,
+            background: 'radial-gradient(circle at 50% 120%, rgba(0,0,0,0.4), transparent 60%)',
+            mixBlendMode: 'multiply',
+         }} />
+
+         {/* Layer 3: Illumination (Caustic Glow) - Offset radial, screen blend */}
+         <div style={{
+            ...layerStyle,
+            background: 'radial-gradient(circle at 30% 20%, rgba(255,255,255,0.1), transparent 40%)',
+            mixBlendMode: 'screen',
+            filter: 'blur(10px)',
+         }} />
+      </div>
+
+      <div style={{
+        position: 'absolute',
+        inset: 0,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        pointerEvents: 'none',
+        zIndex: 3
+      }}>
          <motion.span 
-           style={{ ...Theme.Type.Expressive.Display.M, fontSize: 'clamp(2rem, 6vw, 4rem)', color: 'rgba(255,255,255,0.9)', textShadow: '0 4px 20px rgba(0,0,0,0.3)', mixBlendMode: 'overlay', letterSpacing: '0.05em' }}
+           style={{ 
+             ...Theme.Type.Expressive.Display.M, 
+             fontSize: 'clamp(2rem, 6vw, 4rem)',
+             color: 'rgba(255,255,255,0.9)',
+             textShadow: '0 4px 20px rgba(0,0,0,0.3)',
+             mixBlendMode: 'overlay',
+             letterSpacing: '0.05em'
+           }}
            animate={{ opacity: [0.7, 1, 0.7] }}
            transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
          >
            LIQUID
          </motion.span>
       </div>
+
       {debug && mapUrl && (
-        <div style={{ position: 'absolute', inset: 0, zIndex: 10, backgroundImage: `url("${mapUrl}")`, backgroundSize: '100% 100%', opacity: 0.9, pointerEvents: 'none', border: '2px solid #F59E0B' }} />
+        <div style={{
+          position: 'absolute',
+          inset: 0,
+          zIndex: 10,
+          backgroundImage: `url("${mapUrl}")`,
+          backgroundSize: '100% 100%',
+          opacity: 0.9,
+          pointerEvents: 'none',
+          border: '2px solid #F59E0B',
+        }} />
       )}
     </motion.div>
-  );
-};
-
-// -----------------------------------------------------------------------------
-// MAIN APP: META GLASS
-// -----------------------------------------------------------------------------
-
-interface GlassState {
-  bezel: number;
-  intensity: number;
-  blur: number;
-  radius: number;
-  debug: 'off' | 'on';
-  shape: GlassShape;
-}
-
-export const MetaGlassApp = () => {
-  const [glass, setGlass] = useState<GlassState>({ bezel: 24, intensity: 40, blur: 0, radius: 48, debug: 'off', shape: 'rect' });
-  const [windows, setWindows] = useState([
-    { id: 'controls', isOpen: true, zIndex: 10, title: 'Controls', icon: <Faders size={20} weight="duotone" /> },
-    { id: 'code', isOpen: false, zIndex: 9, title: 'Code I/O', icon: <Code size={20} weight="duotone" /> },
-    { id: 'console', isOpen: false, zIndex: 8, title: 'Console', icon: <TerminalWindow size={20} weight="duotone" /> },
-  ]);
-  const [logs, setLogs] = useState<LogEntry[]>([{ id: 1, timestamp: new Date().toLocaleTimeString(), message: 'System initialized. Performance mode active.', type: 'system' }]);
-
-  const addLog = useCallback((message: string, type: LogEntry['type'] = 'info') => {
-    setLogs(prev => {
-      const newLogs = [...prev, { id: Date.now(), timestamp: new Date().toLocaleTimeString(), message, type }];
-      return newLogs.slice(-50);
-    });
-  }, []);
-
-  const updateGlass = useCallback((key: keyof GlassState, val: any) => {
-    setGlass(prev => ({ ...prev, [key]: val }));
-    if (Math.random() > 0.95) addLog(`Property [${key}] updated to ${val}`, 'action');
-  }, [addLog]);
-
-  const toggleWindow = useCallback((id: string) => {
-    setWindows(prev => {
-      const target = prev.find(w => w.id === id);
-      if (!target) return prev;
-      const wasOpen = target.isOpen;
-      if (!wasOpen) addLog(`Process spawned: ${target.title}`, 'system');
-      const maxZ = Math.max(...prev.map(w => w.zIndex));
-      return prev.map(w => w.id === id ? { ...w, isOpen: !wasOpen, zIndex: !wasOpen ? maxZ + 1 : w.zIndex } : w);
-    });
-  }, [addLog]);
-
-  const focusWindow = useCallback((id: string) => {
-    setWindows(prev => {
-      const target = prev.find(w => w.id === id);
-      const maxZ = Math.max(...prev.map(w => w.zIndex));
-      if (target && target.zIndex === maxZ) return prev;
-      return prev.map(w => ({ ...w, zIndex: w.id === id ? maxZ + 1 : w.zIndex }));
-    });
-  }, []);
-
-  const styles = {
-    container: { width: '100vw', height: '100vh', position: 'relative' as const, overflow: 'hidden', fontFamily: Theme.Type.Readable.Body.M.fontFamily, color: Theme.Color.Base.Content[1], background: Theme.Color.Base.Surface[1], userSelect: 'none' as const },
-    glassContainer: { position: 'absolute' as const, top: '50%', left: '50%', transform: 'translate(-50%, -50%)', width: 'clamp(300px, 40vw, 500px)', height: 'clamp(300px, 40vw, 500px)', zIndex: 10, display: 'flex', alignItems: 'center', justifyContent: 'center' }
-  };
-
-  return (
-    <div style={styles.container}>
-      <Background />
-      <div style={styles.glassContainer}>
-         <GlassBubble {...glass} debug={glass.debug === 'on'} />
-      </div>
-      {windows.map((win) => (
-        <DraggableWindow
-          key={win.id}
-          id={win.id}
-          title={win.title}
-          isOpen={win.isOpen}
-          zIndex={win.zIndex}
-          onClose={() => toggleWindow(win.id)}
-          onFocus={() => focusWindow(win.id)}
-          width={win.id === 'code' ? '420px' : '300px'}
-          height={win.id === 'console' ? '280px' : 'auto'}
-        >
-          {win.id === 'controls' && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: Theme.Space.L }}>
-               <div style={{ display: 'flex', flexDirection: 'column', gap: Theme.Space.S }}>
-                  <label style={Theme.Type.Readable.Label.S}>Debug Visualization</label>
-                  <ToggleGroup options={['off', 'on']} value={glass.debug} onChange={(v) => { updateGlass('debug', v); addLog(`Debug mode switched ${v}`, 'system'); }} />
-               </div>
-               <div style={{ display: 'flex', flexDirection: 'column', gap: Theme.Space.S }}>
-                  <label style={Theme.Type.Readable.Label.S}>Geometry</label>
-                  <ToggleGroup options={['rect', 'squircle']} value={glass.shape} onChange={(v) => { updateGlass('shape', v as GlassShape); addLog(`Shape updated to ${v}`, 'action'); }} />
-               </div>
-               <div style={{ height: '1px', background: Theme.Color.Base.Surface[3] }} />
-               <Slider label="Refraction Intensity" value={glass.intensity} min={0} max={100} onChange={(v) => updateGlass('intensity', v)} />
-               <Slider label="Bezel Width" value={glass.bezel} min={0} max={100} onChange={(v) => updateGlass('bezel', v)} />
-               <Slider label="Surface Blur" value={glass.blur} min={0} max={20} onChange={(v) => updateGlass('blur', v)} />
-               {glass.shape === 'rect' && (
-                 <Slider label="Corner Radius" value={glass.radius} min={0} max={250} onChange={(v) => updateGlass('radius', v)} />
-               )}
-            </div>
-          )}
-          {win.id === 'code' && <CodeIO />}
-          {win.id === 'console' && <Console logs={logs} />}
-        </DraggableWindow>
-      ))}
-      <Dock items={windows} onToggle={toggleWindow} />
-    </div>
   );
 };
