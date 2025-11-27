@@ -1,6 +1,6 @@
 import React from 'react';
 import { createRoot } from 'react-dom/client';
-import { MetaGlassApp } from './components/App/MetaGlassApp';
+import { MetaGlassApp } from './flat';
 
 const container = document.getElementById('root');
 if (container) {
